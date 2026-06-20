@@ -11,6 +11,7 @@ from ipam.constants import *
 from ipam.formfields import IPNetworkFormField
 from ipam.models import *
 from netbox.forms import NetBoxModelForm, OrganizationalModelForm, PrimaryModelForm
+from netbox.forms.mixins import RestrictedRelatedFieldsMixin
 from tenancy.forms import TenancyForm
 from utilities.exceptions import PermissionsViolation
 from utilities.forms import add_blank_choice
@@ -356,6 +357,13 @@ class IPAddressForm(TenancyForm, PrimaryModelForm):
         FieldSet('nat_inside', name=_('NAT IP (Inside)')),
     )
 
+    restricted_related_selectors = {
+        # The selectors are stored as the assigned_object GenericForeignKey; the model picks the matching one.
+        'interface': {'path': 'assigned_object', 'model': Interface},
+        'vminterface': {'path': 'assigned_object', 'model': VMInterface},
+        'fhrpgroup': {'path': 'assigned_object', 'model': FHRPGroup},
+    }
+
     class Meta:
         model = IPAddress
         fields = [
@@ -587,7 +595,7 @@ class FHRPGroupForm(PrimaryModelForm):
                 })
 
 
-class FHRPGroupAssignmentForm(forms.ModelForm):
+class FHRPGroupAssignmentForm(RestrictedRelatedFieldsMixin, forms.ModelForm):
     group = DynamicModelChoiceField(
         label=_('Group'),
         queryset=FHRPGroup.objects.all()
@@ -651,6 +659,11 @@ class VLANGroupForm(TenancyForm, OrganizationalModelForm):
             'name', 'slug', 'description', 'vid_ranges', 'scope_type', 'tenant_group', 'tenant', 'owner', 'comments',
             'tags',
         ]
+
+    # Mirror of dcim ScopedForm.restricted_related_selectors; keep in sync (VLANGroup uses VLANGROUP_SCOPE_TYPES).
+    restricted_related_selectors = {
+        'scope': {'path': 'scope', 'lock_fields': ('scope_type',)},
+    }
 
     def __init__(self, *args, **kwargs):
         instance = kwargs.get('instance')
@@ -834,6 +847,10 @@ class ServiceForm(PrimaryModelForm):
             html_id='service',
         ),
     )
+
+    restricted_related_selectors = {
+        'parent': {'path': 'parent', 'lock_fields': ('parent_object_type',)},
+    }
 
     class Meta:
         model = Service
